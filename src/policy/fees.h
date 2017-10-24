@@ -1,9 +1,10 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-2015 The Bitcoin developers
+// Copyright (c) 2009-2017 The Bitcoin developers
+// Copyright (c) 2016-2017 Duality Blockchain Solutions Developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
-#ifndef DYNAMIC_POLICYESTIMATOR_H
-#define DYNAMIC_POLICYESTIMATOR_H
+#ifndef DYNAMIC_POLICY_FEES_H
+#define DYNAMIC_POLICY_FEES_H
 
 #include "amount.h"
 #include "random.h"
@@ -17,6 +18,16 @@ class CAutoFile;
 class CFeeRate;
 class CTxMemPool;
 class CTxMemPoolEntry;
+
+static const double INIT_STANDARD_FEE_RATE_PERCENT          = 0.0075;
+static const double INIT_INSTANT_FEE_RATE_PERCENT           = 0.0050;
+static const double INIT_PRIVATE_FEE_RATE_PERCENT           = 0.0350;
+static const double INIT_INSTANT_PRIVATE_FEE_RATE_PERCENT   = 0.0400;
+
+static const CAmount INIT_STANDARD_FEE_MAXIMUM              = 0.00500 * COIN;
+static const CAmount INIT_INSTANT_FEE_MAXIMUM               = 0.01250 * COIN;
+static const CAmount INIT_PRIVATE_FEE_MAXIMUM               = std::numeric_limits<int64_t>::max(); //unlimited fee
+static const CAmount INIT_INSTANT_PRIVATE_FEE_MAXIMUM       = std::numeric_limits<int64_t>::max(); //unlimited fee
 
 /** \class CBlockPolicyEstimator
  * The BlockPolicyEstimator is used for estimating the fee or priority needed
@@ -289,4 +300,71 @@ private:
     CFeeRate feeLikely, feeUnlikely;
     double priLikely, priUnlikely;
 };
-#endif /*DYNAMIC_POLICYESTIMATOR_H */
+
+/**
+ *  Modify transaction fees to use a percent sent instead of the transaction size
+ *  We want to be able to control the fee rates by a multisig spork transaction.
+ *  Initial Dynamic Fee Rate Configuration:
+        Standard TX:            0.0075% with a 0.00500 DYN maximum
+        Instant TX:             0.0050% with a 0.0125 DYN maximum
+        Private TX:             0.0350% without a maximum
+        Instant and private TX: 0.0400% without a maximum
+ */
+class CDyanmicFeeRate
+{
+public:
+    CDyanmicFeeRate();
+    CDyanmicFeeRate(    double _StandardFeePercent, CAmount _StandardMaxFee, 
+                        double _InstantFeePercent, CAmount _InstantMaxFee,
+                        double _PrivateFeePercent, CAmount _PrivateMaxFee,
+                        double _PrivateInstantFeePercent, CAmount _PrivateInstantMaxFee,
+                        int _Height
+                    );
+
+    ~CDyanmicFeeRate() {}
+
+    double StandardFeePercent() { return standardFeePercent; }
+    double InstantFeePercent() { return instantFeePercent; }
+    double PrivateFeePercent() { return privateFeePercent; }
+    double PrivateInstantFeePercent() { return privateInstantFeePercent; }
+
+    CAmount StandardMaxFee() { return standardMaxFee; }
+    CAmount InstantMaxFee() { return instantMaxFee; }
+    CAmount PrivateMaxFee() { return privateMaxFee; }
+    CAmount PrivateInstantMaxFee() { return privateInstantMaxFee; };
+
+    int Height() { return nHeight; }
+
+    std::string ToString();
+
+private:
+    double standardFeePercent;
+    CAmount standardMaxFee;
+    double instantFeePercent;
+    CAmount instantMaxFee;
+    double privateFeePercent;
+    CAmount privateMaxFee;
+    double privateInstantFeePercent;
+    CAmount privateInstantMaxFee;
+    int nHeight;
+};
+
+class CDyanmicFeeRateManager
+{
+public:
+    CDyanmicFeeRateManager();
+    CDyanmicFeeRateManager(CDyanmicFeeRate newFeeRate);
+
+    CDyanmicFeeRate GetDyanmicFeeBlockRate(unsigned int nBlockHeight);
+
+    ~CDyanmicFeeRateManager() {}
+
+    bool ActivateNewFeeSpork(CDyanmicFeeRate newFeeRate);
+    CDyanmicFeeRate GetCurrentFeeRate();
+    CAmount GetFee(CAmount SendValue, bool fInstantSend, bool fPrivateSend);
+
+private:
+    std::vector<CDyanmicFeeRate> dynamicRates;
+};
+
+#endif /*DYNAMIC_POLICY_FEES_H */
