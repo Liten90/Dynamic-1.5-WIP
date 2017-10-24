@@ -1100,7 +1100,7 @@
            <item row="3" column="1">
             <widget class="QLabel" name="labelStandardTransactionValue">
              <property name="text">
-              <string>0.0075% with a 0.0050 DYN Maximum</string>
+              <string>0.0075% with a 0.0050 DYN maximum</string>
              </property>
             </widget>
            </item>
@@ -1114,7 +1114,7 @@
            <item row="4" column="1">
             <widget class="QLabel" name="labelInstantSendFeeValue">
              <property name="text">
-              <string>0.0050% with a 0.0125 DYN Maximum</string>
+              <string>0.0050% with a 0.0125 DYN maximum</string>
              </property>
             </widget>
            </item>
@@ -1135,14 +1135,14 @@
            <item row="6" column="1">
             <widget class="QLabel" name="labelInstantPrivateFeeRateValue">
              <property name="text">
-              <string>0.0400% with a 1.0000 DYN Maximum</string>
+              <string>0.0400% without a maximum</string>
              </property>
             </widget>
            </item>
            <item row="5" column="1">
             <widget class="QLabel" name="labelPrivateSendFeeValue">
              <property name="text">
-              <string>0.0350% with a 1.0000 DYN Maximum</string>
+              <string>0.0350% without a maximum</string>
              </property>
             </widget>
            </item>
