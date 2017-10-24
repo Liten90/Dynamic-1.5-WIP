@@ -583,3 +583,101 @@ void CBlockPolicyEstimator::Read(CAutoFile& filein)
     priStats.Read(filein);
     nBestSeenHeight = nFileBestSeenHeight;
 }
+
+// Dynamic Fee Rate System
+CDyanmicFeeRate::CDyanmicFeeRate()
+{
+    standardFeePercent = INIT_STANDARD_FEE_RATE_PERCENT;
+    standardMaxFee = INIT_STANDARD_FEE_MAXIMUM;
+    instantFeePercent = INIT_INSTANT_FEE_RATE_PERCENT;
+    instantMaxFee = INIT_INSTANT_FEE_MAXIMUM;
+    privateFeePercent = INIT_PRIVATE_FEE_RATE_PERCENT;
+    privateMaxFee = INIT_PRIVATE_FEE_MAXIMUM;
+    privateInstantFeePercent = INIT_INSTANT_PRIVATE_FEE_RATE_PERCENT;
+    privateInstantMaxFee = INIT_INSTANT_PRIVATE_FEE_MAXIMUM;
+    nHeight = 0;
+}
+
+CDyanmicFeeRate::CDyanmicFeeRate 
+(
+    double _StandardFeePercent, CAmount _StandardMaxFee, 
+    double _InstantFeePercent, CAmount _InstantMaxFee,
+    double _PrivateFeePercent, CAmount _PrivateMaxFee,
+    double _PrivateInstantFeePercent, CAmount _PrivateInstantMaxFee,
+    int _Height
+)           
+{
+    standardFeePercent = _StandardFeePercent;
+    standardMaxFee = _StandardMaxFee;
+    instantFeePercent = _InstantFeePercent;
+    instantMaxFee = _InstantMaxFee;
+    privateFeePercent = _PrivateFeePercent;
+    privateMaxFee = _PrivateMaxFee;
+    privateInstantFeePercent = _PrivateInstantFeePercent;
+    privateInstantMaxFee = _PrivateInstantMaxFee;
+    nHeight = _Height;
+}
+
+std::string CDyanmicFeeRate::ToString()
+{
+    return "";
+}
+
+CDyanmicFeeRateManager::CDyanmicFeeRateManager ()
+{
+    CDyanmicFeeRate initialFeeRate;
+    dynamicRates.push_back(initialFeeRate);
+}
+
+CDyanmicFeeRateManager::CDyanmicFeeRateManager (CDyanmicFeeRate newFeeRate)
+{
+    CDyanmicFeeRate initialFeeRate;
+    CDyanmicFeeRate currentFeeRate = GetCurrentFeeRate();
+    dynamicRates.push_back(initialFeeRate);
+    assert(newFeeRate.Height() > 0 && newFeeRate.Height() > currentFeeRate.Height()); //make sure vector is in block height order.
+    dynamicRates.push_back(newFeeRate);
+}
+
+bool CDyanmicFeeRateManager::ActivateNewFeeSpork(CDyanmicFeeRate newFeeRate)
+{
+    CDyanmicFeeRate currentFeeRate = GetCurrentFeeRate();
+    assert(newFeeRate.Height() > 0 && newFeeRate.Height() > currentFeeRate.Height()); //make sure vector is in block height order.
+    return true;
+}
+
+CDyanmicFeeRate CDyanmicFeeRateManager::GetCurrentFeeRate()
+{
+    return dynamicRates.back(); //gets the last dynamic fee rate in the vector.
+}
+
+CAmount CDyanmicFeeRateManager::GetFee(CAmount SendValue, bool fInstantSend, bool fPrivateSend)
+{
+    CAmount fee = 0;
+    CDyanmicFeeRate feeRate = GetCurrentFeeRate();
+
+    if (fInstantSend == false && fPrivateSend == false)
+    {
+        fee = (feeRate.StandardFeePercent()/100) * SendValue;
+        if (fee > feeRate.StandardMaxFee())
+            fee = feeRate.StandardMaxFee();
+    }
+    else if (fInstantSend == true && fPrivateSend == false)
+    {
+        fee = (feeRate.InstantFeePercent()/100) * SendValue;
+        if (fee > feeRate.InstantMaxFee())
+            fee = feeRate.InstantMaxFee();
+    }
+    else if (fInstantSend == false && fPrivateSend == true)
+    {
+        fee = (feeRate.PrivateFeePercent()/100) * SendValue;
+        if (fee > feeRate.PrivateMaxFee())
+            fee = feeRate.PrivateMaxFee();
+    }
+    else if (fInstantSend == true && fPrivateSend == true)
+    {
+        fee = (feeRate.PrivateInstantFeePercent()/100) * SendValue;
+        if (fee > feeRate.PrivateInstantMaxFee())
+            fee = feeRate.PrivateInstantMaxFee();
+    }
+    return fee;
+}
