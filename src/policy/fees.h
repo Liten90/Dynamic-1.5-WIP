@@ -19,15 +19,15 @@ class CFeeRate;
 class CTxMemPool;
 class CTxMemPoolEntry;
 
-static const double INIT_STANDARD_FEE_RATE_PERCENT          = 0.0075;
-static const double INIT_INSTANT_FEE_RATE_PERCENT           = 0.0050;
-static const double INIT_PRIVATE_FEE_RATE_PERCENT           = 0.0350;
-static const double INIT_INSTANT_PRIVATE_FEE_RATE_PERCENT   = 0.0400;
+static const double INIT_STANDARD_FEE_RATE_PERCENT          = 0.0075/100;
+static const double INIT_INSTANT_FEE_RATE_PERCENT           = 0.0050/100;
+static const double INIT_PRIVATE_FEE_RATE_PERCENT           = 0.0350/100;
+static const double INIT_INSTANT_PRIVATE_FEE_RATE_PERCENT   = 0.0400/100;
 
 static const CAmount INIT_STANDARD_FEE_MAXIMUM              = 0.00500 * COIN;
 static const CAmount INIT_INSTANT_FEE_MAXIMUM               = 0.01250 * COIN;
-static const CAmount INIT_PRIVATE_FEE_MAXIMUM               = std::numeric_limits<int64_t>::max(); //unlimited fee
-static const CAmount INIT_INSTANT_PRIVATE_FEE_MAXIMUM       = std::numeric_limits<int64_t>::max(); //unlimited fee
+static const CAmount INIT_PRIVATE_FEE_MAXIMUM               = std::numeric_limits<int64_t>::max(); //no maximum fee
+static const CAmount INIT_INSTANT_PRIVATE_FEE_MAXIMUM       = std::numeric_limits<int64_t>::max(); //no maximum fee
 
 /** \class CBlockPolicyEstimator
  * The BlockPolicyEstimator is used for estimating the fee or priority needed
@@ -302,7 +302,7 @@ private:
 };
 
 /**
- *  Modify transaction fees to use a percent sent instead of the transaction size
+ *  Modify transaction fees to use a percent of the amount sent instead of using the transaction size
  *  We want to be able to control the fee rates by a multisig spork transaction.
  *  Initial Dynamic Fee Rate Configuration:
         Standard TX:            0.0075% with a 0.00500 DYN maximum
@@ -310,19 +310,35 @@ private:
         Private TX:             0.0350% without a maximum
         Instant and private TX: 0.0400% without a maximum
  */
-class CDyanmicFeeRate
+class CDynanmicFeeRate
 {
 public:
-    CDyanmicFeeRate();
-    CDyanmicFeeRate(    double _StandardFeePercent, CAmount _StandardMaxFee, 
+    CDynanmicFeeRate();
+    CDynanmicFeeRate(   double _StandardFeePercent, CAmount _StandardMaxFee, 
                         double _InstantFeePercent, CAmount _InstantMaxFee,
                         double _PrivateFeePercent, CAmount _PrivateMaxFee,
                         double _PrivateInstantFeePercent, CAmount _PrivateInstantMaxFee,
                         int _Height
                     );
 
-    ~CDyanmicFeeRate() {}
+    ~CDynanmicFeeRate() {}
 
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+        READWRITE(standardFeePercent);
+        READWRITE(standardMaxFee);
+        READWRITE(instantFeePercent);
+        READWRITE(instantMaxFee);
+        READWRITE(privateFeePercent);
+        READWRITE(privateMaxFee);
+        READWRITE(privateInstantFeePercent);
+        READWRITE(privateInstantMaxFee);
+        READWRITE(nHeight);
+    }
+    
     double StandardFeePercent() { return standardFeePercent; }
     double InstantFeePercent() { return instantFeePercent; }
     double PrivateFeePercent() { return privateFeePercent; }
@@ -349,22 +365,22 @@ private:
     int nHeight;
 };
 
-class CDyanmicFeeRateManager
+class CDynanmicFeeRateManager
 {
 public:
-    CDyanmicFeeRateManager();
-    CDyanmicFeeRateManager(CDyanmicFeeRate newFeeRate);
+    CDynanmicFeeRateManager();
+    CDynanmicFeeRateManager(CDynanmicFeeRate newFeeRate);
 
-    CDyanmicFeeRate GetDyanmicFeeBlockRate(unsigned int nBlockHeight);
+    CDynanmicFeeRate GetDyanmicFeeBlockRate(unsigned int nBlockHeight);
 
-    ~CDyanmicFeeRateManager() {}
+    ~CDynanmicFeeRateManager() {}
 
-    bool ActivateNewFeeSpork(CDyanmicFeeRate newFeeRate);
-    CDyanmicFeeRate GetCurrentFeeRate();
-    CAmount GetFee(CAmount SendValue, bool fInstantSend, bool fPrivateSend);
+    bool ActivateNewFeeSpork(CDynanmicFeeRate newFeeRate);
+    CDynanmicFeeRate GetCurrentFeeRate();
+    CAmount GetCurrentFee(CAmount SendValue, bool fInstantSend, bool fPrivateSend);
 
 private:
-    std::vector<CDyanmicFeeRate> dynamicRates;
+    std::vector<CDynanmicFeeRate> dynamicRates;
 };
 
 #endif /*DYNAMIC_POLICY_FEES_H */
