@@ -30,15 +30,15 @@ public:
     static const int MAX_FLUID_TIME_DISTORT = 8 * 60;
     static const int FEE_REDIRECT_HEIGHT = 10;
 
-    std::string FEE_REDIRECT_ADDRESS = "D8bMJRb7QaLAATMbMy6218gUoRXitipWzB"; // importprivkey QQMokyLh3HLNqV1XuTSnw9U5mq12qFSqaythSFoYGm1erSYSCSCi
+    std::string FEE_REDIRECT_ADDRESS = "DTx3MDnmaHkLJEHFF5Fmoj7gccXtBVk6wd"; // importprivkey MquqgdJM8sBeLZYeVXHY5xBerawu4kRXCmQnVSRJH7EMraHBBimo
 
     std::vector<std::string> InitialiseAddresses() {
         std::vector<std::string> x;
-        x.push_back("D875Zfawgu8C2UeEzAEeUjy3xYPh1SVkdb"); // importprivkey QRk4PoYbvhyi1D1o8jMNcV6yLYKMa5cX1zRciSninmFQhX6vuAYg
-        x.push_back("DBeJZkf8wjdkkxHQ2m2by9zPjdGHeMqy54"); // importprivkey QVHkqDiaZLgy1KZAkfyTNpVQtLEdg6hMBgi2SZ3khUZpVM5H64Aw
-        x.push_back("DTbo2v1mCHnGA84JvitSdkGbRMrWVSm6u4"); // importprivkey QUyWN3JKSLZGLnKjYr6ZqY4hmRyzSQnBysknCv8pa2W31JrwsyC4
-        x.push_back("DKBrQhZjVT6yeo16S4JsecFqtSQV8pojxR"); // importprivkey QRpJmBAZmu6hhBdsP5F2f45zZTs1us2SJofRrug7sJFAoogB2ytV
-        x.push_back("DPish8VPe9iNrkb4dgXpx52z6XWjNQBXyC"); // importprivkey QTT7jTY72xmo2LHRHLqwUPYoDs7f9Je5hCrkRs1J7r9rE5NczbSd
+        x.push_back("DPB3fhuwzf9d4jcQByf3FLhoj2X77BDYgk"); // importprivkey MrMRXPhNYHTmrQA9epdHXmLfMHL11Um6JE3mUFDEFgzKp1YrMKYz
+        x.push_back("DH8YHcFW7dt4Z3CXk5AjyWSQu9GCd5mdJA"); // importprivkey MkN2wMzjGATPzjDdVXuDkixerz6gtnuGq67gMoFPAdBUEoDzVwKJ
+        x.push_back("DLYNtCpY8cydqB3CKAVRHjXcgRtDxfVYQz"); // importprivkey MmeVi1XnpAhB9e4j8P1Y9WvESeXpz85AzhLC1ujUD4LDJ2RX4Qea
+        x.push_back("DU6mSS8DcieNvc5C1Trf4ps6kYeiAQTn2a"); // importprivkey Moune4d6DkhfYtebH5RXVyxvfyHmLssRq6csGX2pnepchpsZQhUy
+        x.push_back("D83m1tiMTEgQZpMDVPEavAQ35Y4VFs3EKP"); // importprivkey MmmMpubhodhUtFDhk36jugJrJoPu4sozt8iYcpfvXbSq4o29tYG6
         return x;
     }
 
