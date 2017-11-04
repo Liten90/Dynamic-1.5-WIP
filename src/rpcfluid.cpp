@@ -159,7 +159,7 @@ UniValue sendfluidtransaction(const UniValue& params, bool fHelp)
     if (fHelp || params.size() != 2)
         throw std::runtime_error(
             "sendfluidtransaction \"OP_MINT || OP_REWARD_DYNODE || OP_REWARD_MINING\" \"hexstring\"\n"
-            "\Send Fluid transactions to the network\n"
+            "\nSend Fluid transactions to the network\n"
             "\nArguments:\n"
             "1. \"opcode\"  (string, required) The Fluid operation to be executed.\n"
             "2. \"hexstring\" (string, required) The token for that opearation.\n"
