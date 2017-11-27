@@ -574,10 +574,11 @@ void static DynamicMiner(const CChainParams& chainparams, CConnman& connman)
             std::unique_ptr<CBlockTemplate> pblocktemplate;
             if(!pindexPrev) break;
             
+            // TOOD: Add systemic determination
 #ifdef ENABLE_WALLET
-            pblocktemplate = std::unique_ptr<CBlockTemplate> (CreateNewBlock(chainparams, coinbaseScript->reserveScript));
+            pblocktemplate = std::unique_ptr<CBlockTemplate> (CreateNewBlock(chainparams, ALGO_ARGON2D_LOW, coinbaseScript->reserveScript));
 #else
-            pblocktemplate = std::unique_ptr<CBlockTemplate> (CreateNewBlock(chainparams));
+            pblocktemplate = std::unique_ptr<CBlockTemplate> (CreateNewBlock(chainparams, ALGO_ARGON2D_LOW));
 #endif
             if (!pblocktemplate.get())
             {
@@ -603,8 +604,10 @@ void static DynamicMiner(const CChainParams& chainparams, CConnman& connman)
                 uint256 hash;
                 while (true)
                 {
+					// TODO: Start working on hashrate restriction 
+					
 					#ifdef __AVX2__
-                    hash = pblock->GetHashWithCtx(Ctx);
+                    hash = pblock->GetHashWithCtx(pblock->GetAlgo(), Ctx);
                     #else
                     hash = pblock->GetHash();
                     #endif

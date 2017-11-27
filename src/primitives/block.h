@@ -34,7 +34,7 @@ enum
     IDENTIFIER_ARGON2D_HIGH      = 0x03,
     IDENTIFIER_ARGON2D_MAX       = 0x04,
     
-    IDENTIFIER_NULL
+    IDENTIFIER_ALGO
 };
 
 int GetAlgo(int nAlgorithm);
@@ -93,7 +93,12 @@ public:
         return (nBits == 0);
     }
 
-    uint256 GetHash(int algo) const;
+    uint256 GetHash() const {
+		return hash_Argon2d(BEGIN(nVersion), END(nNonce), 1);
+	}
+    
+    uint256 GetPoWHash(int algo) const;
+    
 #ifdef __AVX2__
 	uint256 GetHashWithCtx(void *Matrix, int algo) const;
 #endif

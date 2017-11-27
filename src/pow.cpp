@@ -50,9 +50,9 @@ unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, const CBlockHead
     const CBlockIndex* pindexFirst = NULL;
 
 	// find first block in averaging interval
-	// Go back by what we want to be nAveragingInterval blocks
+	// Go back by what we want to be nPowAveragingWindow blocks
 	pindexFirst = pindexPrev;
-	for (int i = 0; pindexFirst && i < params.nAveragingInterval - 1; i++)
+	for (int i = 0; pindexFirst && i < params.nPowAveragingWindow - 1; i++)
 	{
 		pindexFirst = pindexFirst->pprev;
 		pindexFirst = GetLastBlockIndexForAlgo(pindexFirst, algo);
@@ -76,9 +76,9 @@ unsigned int CalculateNextWorkRequired(const CBlockIndex* pindexPrev, const CBlo
     const arith_uint256 nProofOfWorkLimit = UintToArith256(params.powLimit);    
     
     int64_t nTargetSpacingPerAlgo = params.nPowTargetSpacing * NUM_ALGOS; // 60 * 5 = 300s per algo
-    int64_t nAveragingTargetTimespan = params.nAveragingInterval * nTargetSpacingPerAlgo; // 10 * 300 = 3000s, 50 minutes
-    int64_t nMinActualTimespan = nAveragingTargetTimespan * (100 - params.nMaxAdjustUpV2) / 100;
-    int64_t nMaxActualTimespan = nAveragingTargetTimespan * (100 + params.nMaxAdjustDown) / 100;
+    int64_t nAveragingTargetTimespan = params.nPowAveragingWindow * nTargetSpacingPerAlgo; // 10 * 300 = 3000s, 50 minutes
+    int64_t nMinActualTimespan = nAveragingTargetTimespan * (100 - params.nPowMaxAdjustUp) / 100;
+    int64_t nMaxActualTimespan = nAveragingTargetTimespan * (100 + params.nPowMaxAdjustDown) / 100;
     
     if (nActualTimespan < nMinActualTimespan)
         nActualTimespan = nMinActualTimespan;
@@ -114,26 +114,4 @@ bool CheckProofOfWork(uint256 hash, int algo, unsigned int nBits, const Consensu
         return false;
 
     return true;
-}
-
-arith_uint256 GetBlockProof(const CBlockIndex& block)
-{
-    return GetBlockProofBase(block);
-}
-
-int64_t GetBlockProofEquivalentTime(const CBlockIndex& to, const CBlockIndex& from, const CBlockIndex& tip, const Consensus::Params& params)
-{
-    arith_uint256 r;
-    int sign = 1;
-    if (to.nChainWork > from.nChainWork) {
-        r = to.nChainWork - from.nChainWork;
-    } else {
-        r = from.nChainWork - to.nChainWork;
-        sign = -1;
-    }
-    r = r * arith_uint256(params.nPowTargetSpacing) / GetBlockProof(tip);
-    if (r.bits() > 63) {
-        return sign * std::numeric_limits<int64_t>::max();
-    }
-    return sign * r.GetLow64();
 }

@@ -33,12 +33,12 @@ int GetAlgo(int nAlgorithm)
 std::string CBlock::ToString() const
 {
     std::stringstream s;
-    s << strprintf("CBlock(hash=%s, ver=%d, hashPrevBlock=%s, hashMerkleRoot=%s, nTime=%u, nBits=%08x, nNonce=%u, nAlgorithm=%s, vtx=%u)\n",
-        GetHash().ToString(),
+    s << strprintf("CBlock(hash=%s, ver=%d, hashPrevBlock=%s, hashMerkleRoot=%s, nTime=%u, nBits=%08x, nNonce=%u, vtx=%u)\n",
+        GetPoWHash(GetAlgo()).ToString(),
         nVersion,
         hashPrevBlock.ToString(),
         hashMerkleRoot.ToString(),
-        nTime, nBits, nNonce, GetAlgoName(nAlgorithm, 0, nullptr),
+        nTime, nBits, nNonce,
         vtx.size());
     for (unsigned int i = 0; i < vtx.size(); i++)
     {
@@ -47,7 +47,7 @@ std::string CBlock::ToString() const
     return s.str();
 }
 
-uint256 CBlockHeader::GetHash(int algo) const
+uint256 CBlockHeader::GetPoWHash(int algo) const
 {
 	return hash_Argon2d(BEGIN(nVersion), END(nNonce), 1);
 }

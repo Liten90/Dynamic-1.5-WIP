@@ -123,10 +123,12 @@ arith_uint256 GetBlockProofBase(const CBlockIndex& block)
     bnTarget.SetCompact(block.nBits, &fNegative, &fOverflow);
     if (fNegative || fOverflow || bnTarget == 0)
         return 0;
+        
     // We need to compute 2**256 / (bnTarget+1), but we can't represent 2**256
     // as it's too large for a arith_uint256. However, as 2**256 is at least as large
     // as bnTarget+1, it is equal to ((2**256 - bnTarget - 1) / (bnTarget+1)) + 1,
     // or ~bnTarget / (nTarget+1) + 1.
+    
     return (~bnTarget / (bnTarget + 1)) + 1;
 }
 
@@ -171,56 +173,6 @@ arith_uint256 GetPrevWorkForAlgoWithDecay(const CBlockIndex& block, int algo)
     const CBlockIndex* pindex = &block;
     while (pindex != NULL)
     {
-        if (nDistance > 32)
-        {
-            return UintToArith256(Params().GetConsensus().powLimit);
-        }
-        if (pindex->GetAlgo() == algo)
-        {
-            arith_uint256 nWork = GetBlockProofBase(*pindex);
-            nWork *= (32 - nDistance);
-            nWork /= 32;
-            if (nWork < UintToArith256(Params().GetConsensus().powLimit))
-                nWork = UintToArith256(Params().GetConsensus().powLimit);
-            return nWork;
-        }
-        pindex = pindex->pprev;
-        nDistance++;
-    }
-    return UintToArith256(Params().GetConsensus().powLimit);
-}
-
-arith_uint256 GetPrevWorkForAlgoWithDecay2(const CBlockIndex& block, int algo)
-{
-    int nDistance = 0;
-    arith_uint256 nWork;
-    const CBlockIndex* pindex = &block;
-    while (pindex != NULL)
-    {
-        if (nDistance > 32)
-        {
-            return arith_uint256(0);
-        }
-        if (pindex->GetAlgo() == algo)
-        {
-            arith_uint256 nWork = GetBlockProofBase(*pindex);
-            nWork *= (32 - nDistance);
-            nWork /= 32;
-            return nWork;
-        }
-        pindex = pindex->pprev;
-        nDistance++;
-    }
-    return arith_uint256(0);
-}
-    
-arith_uint256 GetPrevWorkForAlgoWithDecay3(const CBlockIndex& block, int algo)
-{
-    int nDistance = 0;
-    arith_uint256 nWork;
-    const CBlockIndex* pindex = &block;
-    while (pindex != NULL)
-    {
         if (nDistance > 100)
         {
             return arith_uint256(0);
@@ -249,7 +201,7 @@ arith_uint256 GetGeometricMeanPrevWork(const CBlockIndex& block)
     {
         if (algo != nAlgo)
         {
-            arith_uint256 nBlockWorkAlt = GetPrevWorkForAlgoWithDecay3(block, algo);
+            arith_uint256 nBlockWorkAlt = GetPrevWorkForAlgoWithDecay(block, algo);
             CBigNum bnBlockWorkAlt = CBigNum(ArithToUint256(nBlockWorkAlt));
             if (bnBlockWorkAlt != 0)
                 bnBlockWork *= bnBlockWorkAlt;
@@ -266,37 +218,8 @@ arith_uint256 GetGeometricMeanPrevWork(const CBlockIndex& block)
 }
 
 arith_uint256 GetBlockProof(const CBlockIndex& block)
-{
-    Consensus::Params params = Params().GetConsensus();
-    
-    arith_uint256 bnTarget;
-    int nHeight = block.nHeight;
-    int nAlgo = block.GetAlgo();
-       
+{       
     return GetGeometricMeanPrevWork(block);
-}
-
-int64_t GetBlockProofEquivalentTime(const CBlockIndex& to, const CBlockIndex& from, const CBlockIndex& tip, const Consensus::Params& params)
-{
-    arith_uint256 r;
-    int sign = 1;
-    if (to.nChainWork > from.nChainWork) {
-        r = to.nChainWork - from.nChainWork;
-    } else {
-        r = from.nChainWork - to.nChainWork;
-        sign = -1;
-    }
-    /* TODO: Myriadcoin, Being specific in this case for consensus matching with 0.11. However
-        this should be safe to set to the current params.nPowTargetSpacing. We can safely reset
-        if hard forked from 0.11. In consensus, params.nPowTargetSpacing is set
-        to params.nPowTargetSpacingV2.
-    r = r * arith_uint256(params.nPowTargetSpacing) / GetBlockProof(tip);
-    */
-    r = r * arith_uint256(params.nPowTargetSpacingV2) / GetBlockProof(tip);
-    if (r.bits() > 63) {
-        return sign * std::numeric_limits<int64_t>::max();
-    }
-    return sign * r.GetLow64();
 }
 
 const CBlockIndex* GetLastBlockIndexForAlgo(const CBlockIndex* pindex, int algo)
