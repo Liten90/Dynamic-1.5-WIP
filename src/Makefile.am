@@ -302,8 +302,8 @@ libdynamic_wallet_a_SOURCES = \
   $(DYNAMIC_CORE_H)
 
 # crypto primitives library
-crypto_libdynamic_crypto_a_CPPFLAGS = $(AM_CPPFLAGS) $(DYNAMIC_CONFIG_INCLUDES) $(PIC_FLAGS)
-crypto_libdynamic_crypto_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS) $(PIC_FLAGS)
+crypto_libdynamic_crypto_a_CPPFLAGS = $(AM_CPPFLAGS) $(DYNAMIC_CONFIG_INCLUDES) $(PIC_FLAGS) -mavx512f
+crypto_libdynamic_crypto_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS) $(PIC_FLAGS) -mavx512f
 crypto_libdynamic_crypto_a_SOURCES = \
   crypto/common.h \
   crypto/argon2d/argon2.h \
