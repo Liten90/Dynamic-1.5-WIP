@@ -285,6 +285,12 @@ public:
     //! Efficiently find an ancestor of this block.
     CBlockIndex* GetAncestor(int height);
     const CBlockIndex* GetAncestor(int height) const;
+    
+    //! Get Algorithm Identifier
+    int GetAlgo() const
+    {
+        return ::GetAlgo(nVersion);
+	}
 };
 
 /** Used to marshal pointers into hashes for db storage. */

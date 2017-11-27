@@ -28,11 +28,13 @@ const int NUM_ALGOS = 4;
 
 enum
 {
-	IDENTIFIER_ARGON2D_MIN		 = 0x00;
-    IDENTIFIER_ARGON2D_LOW       = 0x01;
+	IDENTIFIER_ARGON2D_MIN		 = 0x00,
+    IDENTIFIER_ARGON2D_LOW       = 0x01,
     IDENTIFIER_ARGON2D_MEDIUM    = 0x02,
     IDENTIFIER_ARGON2D_HIGH      = 0x03,
     IDENTIFIER_ARGON2D_MAX       = 0x04,
+    
+    IDENTIFIER_NULL
 };
 
 int GetAlgo(int nAlgorithm);
@@ -103,7 +105,7 @@ public:
    
     inline int GetAlgo() const
     {
-        return GetAlgo(nAlgorithm);
+        return ::GetAlgo(nAlgorithm);
     }
     
     /** Encode the algorithm into nVersion */
