@@ -1,8 +1,8 @@
 // Copyright (c) 2009-2017 Satoshi Nakamoto
 // Copyright (c) 2009-2017 The Bitcoin Developers
 // Copyright (c) 2014-2017 The Dash Core Developers
+// Copyright (c) 2014-2017 The Myriadcoin Core Developers
 // Copyright (c) 2016-2017 Duality Blockchain Solutions Developers
-// Copyright (c) 2015-2016 The Gulden developers
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -26,56 +26,78 @@ const CBlockIndex* GetLastBlockIndex(const CBlockIndex* pindex)
     return pindex;
 }
 
-unsigned int GetNextWorkRequired(const INDEX_TYPE pindexLast, const BLOCK_TYPE block, const Consensus::Params& params)
+unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, const CBlockHeader *pblock, int algo, const Consensus::Params& params)
 {
-    if (CheckForkIsTrue(DELTA_RETARGET, pindexLast)) {
-        
-        // Find the first block in the averaging interval
-        const CBlockIndex* pindexFirst = pindexLast;
-        arith_uint256 bnTot {0};
-        for (int i = 0; pindexFirst && i < params.nPowAveragingWindow; i++) {
-            arith_uint256 bnTmp;
-            bnTmp.SetCompact(pindexFirst->nBits);
-            bnTot += bnTmp;
-            pindexFirst = pindexFirst->pprev;
-        }
-        arith_uint256 bnAvg {bnTot / params.nPowAveragingWindow};
-        
-        // Use medians to prevent time-warp attacks
-        int64_t nLastBlockTime = pindexLast->GetMedianTimePast();
-        int64_t nFirstBlockTime = pindexFirst->GetMedianTimePast();
-        int64_t nActualTimespan = nLastBlockTime - nFirstBlockTime;
-        LogPrint("pow", "  nActualTimespan = %d  before dampening\n", nActualTimespan);
-        nActualTimespan = params.AveragingWindowTimespan() + (nActualTimespan - params.AveragingWindowTimespan())/4;
-        LogPrint("pow", "  nActualTimespan = %d  before bounds\n", nActualTimespan);
+    unsigned int nProofOfWorkLimit = UintToArith256(params.powLimit).GetCompact();
 
-        if (nActualTimespan < params.MinActualTimespan())
-            nActualTimespan = params.MinActualTimespan();
-        if (nActualTimespan > params.MaxActualTimespan())
-            nActualTimespan = params.MaxActualTimespan();
+    // Genesis block
+    if (pindexLast == NULL)
+        return nProofOfWorkLimit;
 
-        // Retarget
-        const arith_uint256 bnPowLimit = UintToArith256(params.powLimit);
-        arith_uint256 bnNew {bnAvg};
-        bnNew /= params.AveragingWindowTimespan();
-        bnNew *= nActualTimespan;
+    if (params.fPowAllowMinDifficultyBlocks)
+    {
+        if (pblock->GetBlockTime() > pindexLast->GetBlockTime() + params.nPowTargetSpacing*2)
+            return nProofOfWorkLimit;
+    }
 
-        if (bnNew > bnPowLimit)
-            bnNew = bnPowLimit;
+    // find previous block with same algo
+    const CBlockIndex* pindexPrev = GetLastBlockIndexForAlgo(pindexLast, algo);
 
-        /// debug print
-        LogPrint("pow", "GetNextWorkRequired RETARGET\n");
-        LogPrint("pow", "params.AveragingWindowTimespan() = %d    nActualTimespan = %d\n", params.AveragingWindowTimespan(), nActualTimespan);
-        LogPrint("pow", "Current average: %08x  %s\n", bnAvg.GetCompact(), bnAvg.ToString());
-        LogPrint("pow", "After:  %08x  %s\n", bnNew.GetCompact(), bnNew.ToString());
+    // Genesis block check again
+    if (pindexPrev == NULL)
+        return nProofOfWorkLimit;
 
-        return bnNew.GetCompact();
+    const CBlockIndex* pindexFirst = NULL;
 
-    } else { return LegacyRetargetBlock(pindexLast, block, params); }
+	// find first block in averaging interval
+	// Go back by what we want to be nAveragingInterval blocks
+	pindexFirst = pindexPrev;
+	for (int i = 0; pindexFirst && i < params.nAveragingInterval - 1; i++)
+	{
+		pindexFirst = pindexFirst->pprev;
+		pindexFirst = GetLastBlockIndexForAlgo(pindexFirst, algo);
+		if (pindexFirst == NULL)
+		{
+			return nProofOfWorkLimit;
+		}
+	}
+    
+
+    int64_t nActualTimespan = pindexPrev->GetMedianTimePast() - pindexFirst->GetMedianTimePast();
+    
+	return CalculateNextWorkRequired(pindexPrev, pindexFirst, params, algo, nActualTimespan);
 }
 
+unsigned int CalculateNextWorkRequired(const CBlockIndex* pindexPrev, const CBlockIndex* pindexFirst, const Consensus::Params& params, int algo, int64_t nActualTimespan)
+{
+    if (params.fPowNoRetargeting)
+        return pindexPrev->nBits;
 
-bool CheckProofOfWork(uint256 hash, unsigned int nBits, const Consensus::Params& params)
+    const arith_uint256 nProofOfWorkLimit = UintToArith256(params.powLimit);    
+    
+    int64_t nTargetSpacingPerAlgo = params.nPowTargetSpacing * NUM_ALGOS; // 60 * 5 = 300s per algo
+    int64_t nAveragingTargetTimespan = params.nAveragingInterval * nTargetSpacingPerAlgo; // 10 * 300 = 3000s, 50 minutes
+    int64_t nMinActualTimespan = nAveragingTargetTimespan * (100 - params.nMaxAdjustUpV2) / 100;
+    int64_t nMaxActualTimespan = nAveragingTargetTimespan * (100 + params.nMaxAdjustDown) / 100;
+    
+    if (nActualTimespan < nMinActualTimespan)
+        nActualTimespan = nMinActualTimespan;
+    if (nActualTimespan > nMaxActualTimespan)
+        nActualTimespan = nMaxActualTimespan;
+    
+    arith_uint256 bnNew;
+    arith_uint256 bnOld;
+    bnNew.SetCompact(pindexPrev->nBits);
+    bnOld = bnNew;
+    bnNew *= nActualTimespan;
+    bnNew /= nAveragingTargetTimespan;
+    if (bnNew > nProofOfWorkLimit)
+        bnNew = nProofOfWorkLimit;
+    
+    return bnNew.GetCompact();
+}
+
+bool CheckProofOfWork(uint256 hash, int algo, unsigned int nBits, const Consensus::Params& params)
 {
     bool fNegative;
     bool fOverflow;
@@ -85,28 +107,18 @@ bool CheckProofOfWork(uint256 hash, unsigned int nBits, const Consensus::Params&
 
     // Check range
     if (fNegative || bnTarget == 0 || fOverflow || bnTarget > UintToArith256(params.powLimit))
-        return error("CheckProofOfWork(): nBits below minimum work");
+        return false;
 
     // Check proof of work matches claimed amount
     if (UintToArith256(hash) > bnTarget)
-        return error("CheckProofOfWork(): hash doesn't match nBits");
+        return false;
 
     return true;
 }
 
 arith_uint256 GetBlockProof(const CBlockIndex& block)
 {
-    arith_uint256 bnTarget;
-    bool fNegative;
-    bool fOverflow;
-    bnTarget.SetCompact(block.nBits, &fNegative, &fOverflow);
-    if (fNegative || fOverflow || bnTarget == 0)
-        return 0;
-    // We need to compute 2**256 / (bnTarget+1), but we can't represent 2**256
-    // as it's too large for a arith_uint256. However, as 2**256 is at least as large
-    // as bnTarget+1, it is equal to ((2**256 - bnTarget - 1) / (bnTarget+1)) + 1,
-    // or ~bnTarget / (nTarget+1) + 1.
-    return (~bnTarget / (bnTarget + 1)) + 1;
+    return GetBlockProofBase(block);
 }
 
 int64_t GetBlockProofEquivalentTime(const CBlockIndex& to, const CBlockIndex& from, const CBlockIndex& tip, const Consensus::Params& params)

@@ -1,6 +1,7 @@
 // Copyright (c) 2009-2017 Satoshi Nakamoto
 // Copyright (c) 2009-2017 The Bitcoin Developers
 // Copyright (c) 2014-2017 The Dash Core Developers
+// Copyright (c) 2014-2017 The Myriadcoin Core Developers
 // Copyright (c) 2016-2017 Duality Blockchain Solutions Developers
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
@@ -115,9 +116,11 @@ int64_t UpdateTime(CBlockHeader* pblock, const Consensus::Params& consensusParam
         pblock->nTime = nNewTime;
 
     // Updating time can change work required on testnet:
-    if (consensusParams.fPowAllowMinDifficultyBlocks)
-        pblock->nBits = GetNextWorkRequired(pindexPrev, pblock, consensusParams);
-
+    if (consensusParams.fPowAllowMinDifficultyBlocks) {
+		int algo = pblock->GetAlgo();
+        pblock->nBits = GetNextWorkRequired(pindexPrev, pblock, algo, consensusParams);
+	}
+	
     return nNewTime - nOldTime;
 }
 
@@ -199,7 +202,7 @@ bool CheckWork(const CChainParams& chainparams, CBlock* pblock, CWallet& wallet,
     return true;
 }
 
-std::unique_ptr<CBlockTemplate> CreateNewBlock(const CChainParams& chainparams, const CScript& scriptPubKeyIn)
+std::unique_ptr<CBlockTemplate> CreateNewBlock(const CChainParams& chainparams, int algo, const CScript& scriptPubKeyIn)
 {
     // Create new block
     std::unique_ptr<CBlockTemplate> pblocktemplate(new CBlockTemplate());
@@ -255,7 +258,10 @@ std::unique_ptr<CBlockTemplate> CreateNewBlock(const CChainParams& chainparams, 
         const int nHeight = pindexPrev->nHeight + 1;
         pblock->nTime = GetAdjustedTime();
         const int64_t nMedianTimePast = pindexPrev->GetMedianTimePast();
-
+		
+		// multi-algo: encode algo into nAlgorithm
+		pblock->SetAlgo(algo);
+        
         // Add our coinbase tx as first transaction
         pblock->vtx.push_back(txNew);
         pblocktemplate->vTxFees.push_back(-1); // updated at end
@@ -425,7 +431,7 @@ std::unique_ptr<CBlockTemplate> CreateNewBlock(const CChainParams& chainparams, 
         // Fill in header
         pblock->hashPrevBlock  = pindexPrev->GetBlockHash();
         UpdateTime(pblock, chainparams.GetConsensus(), pindexPrev);
-        pblock->nBits          = GetNextWorkRequired(pindexPrev, pblock, chainparams.GetConsensus());
+        pblock->nBits          = GetNextWorkRequired(pindexPrev, pblock, algo, chainparams.GetConsensus());
         pblock->nNonce         = 0;
         pblocktemplate->vTxSigOps[0] = GetLegacySigOpCount(pblock->vtx[0]);
 

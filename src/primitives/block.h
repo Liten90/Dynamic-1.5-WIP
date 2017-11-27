@@ -1,5 +1,6 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2015 The Bitcoin Core developers
+// Copyright (c) 2014-2017 The Myriadcoin Core Developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -11,6 +12,30 @@
 #include "primitives/transaction.h"
 #include "uint256.h"
 #include "utilstrencodings.h"
+
+/** Multi-Algo definitions used to encode algorithm in nVersion */
+enum {
+    ALGO_ARGON2D_MIN  	= 0,
+    ALGO_ARGON2D_LOW   	= 1,
+    ALGO_ARGON2D_MEDIUM = 2,
+    ALGO_ARGON2D_HIGH   = 3,
+    ALGO_ARGON2D_MAX    = 4,
+
+    NUM_ALGOS_IMPL
+};
+
+const int NUM_ALGOS = 4;
+
+enum
+{
+	IDENTIFIER_ARGON2D_MIN		 = 0x00;
+    IDENTIFIER_ARGON2D_LOW       = 0x01;
+    IDENTIFIER_ARGON2D_MEDIUM    = 0x02,
+    IDENTIFIER_ARGON2D_HIGH      = 0x03,
+    IDENTIFIER_ARGON2D_MAX       = 0x04,
+};
+
+int GetAlgo(int nAlgorithm);
 
 /** Nodes collect new transactions into a block, hash them into a hash tree,
  * and scan through nonce values to make the block's hash satisfy proof-of-work
@@ -66,24 +91,45 @@ public:
         return (nBits == 0);
     }
 
-    uint256 GetHash() const
-    {
-        return hash_Argon2d(BEGIN(nVersion), END(nNonce), 1);
-    }
-    
-    #ifdef __AVX2__
-    
-    uint256 GetHashWithCtx(void *Matrix) const
-    {
-		return(hash_Argon2d_ctx(UVOIDBEGIN(nVersion), Matrix, 1));
-	}
-	
-	#endif
+    uint256 GetHash(int algo) const;
+#ifdef __AVX2__
+	uint256 GetHashWithCtx(void *Matrix, int algo) const;
+#endif
 
     int64_t GetBlockTime() const
     {
         return (int64_t)nTime;
     }
+   
+    inline int GetAlgo() const
+    {
+        return GetAlgo(nAlgorithm);
+    }
+    
+    /** Encode the algorithm into nVersion */
+    inline void SetAlgo(int algo)
+    {
+        switch(algo)
+        {
+            case ALGO_ARGON2D_MIN:
+				nAlgorithm |= IDENTIFIER_ARGON2D_MIN;
+                break;
+            case ALGO_ARGON2D_LOW:
+                nAlgorithm |= IDENTIFIER_ARGON2D_LOW;
+                break;
+            case ALGO_ARGON2D_MEDIUM:
+                nAlgorithm |= IDENTIFIER_ARGON2D_MEDIUM;
+                break;
+            case ALGO_ARGON2D_HIGH:
+                nAlgorithm |= IDENTIFIER_ARGON2D_HIGH;
+                break;
+            case ALGO_ARGON2D_MAX:
+                nAlgorithm |= IDENTIFIER_ARGON2D_MAX;
+                break;
+            default:
+                break;
+        }
+	}
 };
 
 

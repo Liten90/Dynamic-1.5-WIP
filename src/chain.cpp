@@ -1,11 +1,13 @@
 // Copyright (c) 2009-2017 Satoshi Nakamoto
 // Copyright (c) 2009-2017 The Bitcoin Developers
 // Copyright (c) 2014-2017 The Dash Core Developers
+// Copyright (c) 2014-2017 The Myriadcoin Core Developers
 // Copyright (c) 2016-2017 Duality Blockchain Solutions Developers
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include "chain.h"
+#include "bignum.h"
 
 /**
  * CChain implementation
@@ -110,4 +112,256 @@ void CBlockIndex::BuildSkip()
 {
     if (pprev)
         pskip = pprev->GetAncestor(GetSkipHeight(nHeight));
+}
+
+arith_uint256 GetBlockProofBase(const CBlockIndex& block)
+{
+    arith_uint256 bnTarget;
+    bool fNegative;
+    bool fOverflow;
+    bnTarget.SetCompact(block.nBits, &fNegative, &fOverflow);
+    if (fNegative || fOverflow || bnTarget == 0)
+        return 0;
+    // We need to compute 2**256 / (bnTarget+1), but we can't represent 2**256
+    // as it's too large for a arith_uint256. However, as 2**256 is at least as large
+    // as bnTarget+1, it is equal to ((2**256 - bnTarget - 1) / (bnTarget+1)) + 1,
+    // or ~bnTarget / (nTarget+1) + 1.
+    return (~bnTarget / (bnTarget + 1)) + 1;
+}
+
+int GetAlgoWorkFactor(int algo)
+{
+	// TODO: Dynamic - determine and set these parameters
+    switch (algo)
+    {
+        case ALGO_ARGON2D_MIN:
+            return 2; 
+        case ALGO_ARGON2D_LOW:
+            return 4;
+        case ALGO_ARGON2D_MEDIUM:
+            return 6;
+        case ALGO_ARGON2D_HIGH:
+            return 8;
+        case ALGO_ARGON2D_MAX:
+            return 10;
+        default:
+            return 1;
+    }
+}
+
+arith_uint256 GetPrevWorkForAlgo(const CBlockIndex& block, int algo)
+{
+    const CBlockIndex* pindex = &block;
+    while (pindex != NULL)
+    {
+        if (pindex->GetAlgo() == algo)
+        {
+            return GetBlockProofBase(*pindex);
+        }
+        pindex = pindex->pprev;
+    }
+    return UintToArith256(Params().GetConsensus().powLimit);
+}
+
+arith_uint256 GetPrevWorkForAlgoWithDecay(const CBlockIndex& block, int algo)
+{
+    int nDistance = 0;
+    arith_uint256 nWork;
+    const CBlockIndex* pindex = &block;
+    while (pindex != NULL)
+    {
+        if (nDistance > 32)
+        {
+            return UintToArith256(Params().GetConsensus().powLimit);
+        }
+        if (pindex->GetAlgo() == algo)
+        {
+            arith_uint256 nWork = GetBlockProofBase(*pindex);
+            nWork *= (32 - nDistance);
+            nWork /= 32;
+            if (nWork < UintToArith256(Params().GetConsensus().powLimit))
+                nWork = UintToArith256(Params().GetConsensus().powLimit);
+            return nWork;
+        }
+        pindex = pindex->pprev;
+        nDistance++;
+    }
+    return UintToArith256(Params().GetConsensus().powLimit);
+}
+
+arith_uint256 GetPrevWorkForAlgoWithDecay2(const CBlockIndex& block, int algo)
+{
+    int nDistance = 0;
+    arith_uint256 nWork;
+    const CBlockIndex* pindex = &block;
+    while (pindex != NULL)
+    {
+        if (nDistance > 32)
+        {
+            return arith_uint256(0);
+        }
+        if (pindex->GetAlgo() == algo)
+        {
+            arith_uint256 nWork = GetBlockProofBase(*pindex);
+            nWork *= (32 - nDistance);
+            nWork /= 32;
+            return nWork;
+        }
+        pindex = pindex->pprev;
+        nDistance++;
+    }
+    return arith_uint256(0);
+}
+    
+arith_uint256 GetPrevWorkForAlgoWithDecay3(const CBlockIndex& block, int algo)
+{
+    int nDistance = 0;
+    arith_uint256 nWork;
+    const CBlockIndex* pindex = &block;
+    while (pindex != NULL)
+    {
+        if (nDistance > 100)
+        {
+            return arith_uint256(0);
+        }
+        if (pindex->GetAlgo() == algo)
+        {
+            arith_uint256 nWork = GetBlockProofBase(*pindex);
+            nWork *= (100 - nDistance);
+            nWork /= 100;
+            return nWork;
+        }
+        pindex = pindex->pprev;
+        nDistance++;
+    }
+    return arith_uint256(0);
+}
+
+arith_uint256 GetGeometricMeanPrevWork(const CBlockIndex& block)
+{
+    //arith_uint256 bnRes;
+    arith_uint256 nBlockWork = GetBlockProofBase(block);
+    CBigNum bnBlockWork = CBigNum(ArithToUint256(nBlockWork));
+    int nAlgo = block.GetAlgo();
+    
+    for (int algo = 0; algo < NUM_ALGOS_IMPL; algo++)
+    {
+        if (algo != nAlgo)
+        {
+            arith_uint256 nBlockWorkAlt = GetPrevWorkForAlgoWithDecay3(block, algo);
+            CBigNum bnBlockWorkAlt = CBigNum(ArithToUint256(nBlockWorkAlt));
+            if (bnBlockWorkAlt != 0)
+                bnBlockWork *= bnBlockWorkAlt;
+        }
+    }
+    // Compute the geometric mean
+    CBigNum bnRes = bnBlockWork.nthRoot(NUM_ALGOS);
+    
+    // Scale to roughly match the old work calculation
+    bnRes <<= 8;
+    
+    //return bnRes;
+    return UintToArith256(bnRes.getuint256());
+}
+
+arith_uint256 GetBlockProof(const CBlockIndex& block)
+{
+    Consensus::Params params = Params().GetConsensus();
+    
+    arith_uint256 bnTarget;
+    int nHeight = block.nHeight;
+    int nAlgo = block.GetAlgo();
+    
+    if (nHeight >= params.nGeoAvgWork_Start)
+    {
+        bnTarget = GetGeometricMeanPrevWork(block);
+    }
+    else if (nHeight >= params.nBlockAlgoNormalisedWorkStart)
+    {
+        arith_uint256 nBlockWork = GetBlockProofBase(block);
+        for (int algo = 0; algo < NUM_ALGOS; algo++)
+        {
+            if (algo != nAlgo)
+            {
+                if (nHeight >= params.nBlockAlgoNormalisedWorkDecayStart2)
+                {
+                    nBlockWork += GetPrevWorkForAlgoWithDecay2(block, algo);
+                }
+                else
+                {
+                    if (nHeight >= params.nBlockAlgoNormalisedWorkDecayStart1)
+                    {
+                        nBlockWork += GetPrevWorkForAlgoWithDecay(block, algo);
+                    }
+                    else
+                    {
+                        nBlockWork += GetPrevWorkForAlgo(block, algo);
+                    }
+                }
+            }
+        }
+        bnTarget = nBlockWork / NUM_ALGOS;
+    }
+    else if (nHeight >= params.nBlockAlgoWorkWeightStart)
+    {
+        bnTarget = GetBlockProofBase(block) * GetAlgoWorkFactor(nAlgo);
+    }
+    else
+    {
+        bnTarget = GetBlockProofBase(block);
+    }
+    return bnTarget;
+}
+
+int64_t GetBlockProofEquivalentTime(const CBlockIndex& to, const CBlockIndex& from, const CBlockIndex& tip, const Consensus::Params& params)
+{
+    arith_uint256 r;
+    int sign = 1;
+    if (to.nChainWork > from.nChainWork) {
+        r = to.nChainWork - from.nChainWork;
+    } else {
+        r = from.nChainWork - to.nChainWork;
+        sign = -1;
+    }
+    /* TODO: Myriadcoin, Being specific in this case for consensus matching with 0.11. However
+        this should be safe to set to the current params.nPowTargetSpacing. We can safely reset
+        if hard forked from 0.11. In consensus, params.nPowTargetSpacing is set
+        to params.nPowTargetSpacingV2.
+    r = r * arith_uint256(params.nPowTargetSpacing) / GetBlockProof(tip);
+    */
+    r = r * arith_uint256(params.nPowTargetSpacingV2) / GetBlockProof(tip);
+    if (r.bits() > 63) {
+        return sign * std::numeric_limits<int64_t>::max();
+    }
+    return sign * r.GetLow64();
+}
+
+const CBlockIndex* GetLastBlockIndexForAlgo(const CBlockIndex* pindex, int algo)
+{
+    for (;;)
+    {   
+        if (!pindex)
+            return NULL;
+        if (pindex->GetAlgo() == algo)
+            return pindex;
+        pindex = pindex->pprev;
+    }
+}
+
+std::string GetAlgoName(int Algo, uint32_t time, const Consensus::Params& consensusParams)
+{
+    switch (Algo)
+    {
+        case ALGO_ARGON2D_MIN:
+            return std::string("Argon2d-Minimum");
+        case ALGO_ARGON2D_LOW:
+            return std::string("Argon2d-Low");
+        case ALGO_ARGON2D_MEDIUM:
+            return std::string("Argon2d-Moderate");
+        case ALGO_ARGON2D_HIGH:
+            return std::string("Argon2d-High");
+        case ALGO_ARGON2D_MAX:
+            return std::string("Argon2d-Maximum");
+    }
+    return std::string("Argon2d-Foreign");
 }
